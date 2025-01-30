@@ -1,47 +1,53 @@
 // App.js
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import NavBar from "./components/Navbar";
 import SearchBar from "./components/SearchBar";
 import BillCard from "./components/BillCard";
 import AddBill from "./components/AddBill";
 
 const App = () => {
-  const [bills, setBills] = useState([
-    {
-      billNo: `B${Date.now()}-1`,
-      patientID: "P001",
-      amount: 100,
-      doctorRegNo: "D12345",
-      medicines: [{ name: "Paracetamol", quantity: 2, price: 10 }],
-    },
-    {
-      billNo: `B${Date.now()}-2`,
-      patientID: "P002",
-      amount: 150,
-      doctorRegNo: "D67890",
-      medicines: [{ name: "Ibuprofen", quantity: 1, price: 5 }],
-    },
-    {
-      billNo: `B${Date.now()}-3`,
-      patientID: "P003",
-      amount: 200,
-      doctorRegNo: "D54321",
-      medicines: [{ name: "Aspirin", quantity: 3, price: 15 }],
-    },
-  ]);
-  const [filteredBills, setFilteredBills] = useState(bills);
+  const [bills, setBills] = useState([]);
+  const [filteredBills, setFilteredBills] = useState([]);
   const [isAddBillVisible, setAddBillVisible] = useState(false);
   const [isConfirmationVisible, setConfirmationVisible] = useState(false);
   const [billToDelete, setBillToDelete] = useState(null);
 
-  const generateBillNo = () => {
-    return `B${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-  };
+  useEffect(() => {
+    const fetchBills = async () => {
+      try {
+        const response = await fetch('http://localhost:3000/api/getbills');
+        if (!response.ok) {
+          throw new Error('Failed to fetch bills');
+        }
+        const data = await response.json();
+        setBills(data);
+        setFilteredBills(data);
+      } catch (error) {
+        console.error('Error fetching bills:', error);
+      }
+    };
 
-  const handleAddBill = (newBill) => {
-    setBills((prevBills) => [...prevBills, newBill]);
-    setFilteredBills((prevBills) => [...prevBills, newBill]);
-    setAddBillVisible(false);
+    fetchBills();
+  }, []);
+
+
+  const handleAddBill = async (newBill) => {
+    try {
+      const response = await fetch('http://localhost:3000/api/createbill', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newBill),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to create bill');
+      }
+      const createdBill = await response.json();
+      
+    } catch (error) {
+      alert(`Error creating bill: ${error.message}`);
+    }
   };
 
   const confirmDeleteBill = (billNo) => {
@@ -51,13 +57,13 @@ const App = () => {
 
   const handleDeleteBill = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/bills/${billToDelete}`, {
-        method: "DELETE",
+      const response = await fetch(`http://localhost:3000/api/deletebill/${billToDelete}`, {
+        method: 'DELETE',
       });
       if (!response.ok) {
-        throw new Error("Failed to delete the bill. Please try again.");
+        throw new Error('Failed to delete the bill. Please try again.');
       }
-      const updatedBills = bills.filter((bill) => bill.billNo !== billToDelete);
+      const updatedBills = bills.filter((bill) => bill.bid !== billToDelete);
       setBills(updatedBills);
       setFilteredBills(updatedBills);
       setBillToDelete(null);
@@ -73,8 +79,9 @@ const App = () => {
     } else {
       const filtered = bills.filter(
         (bill) =>
-          bill.patientID.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          bill.billNo.toLowerCase().includes(searchTerm.toLowerCase())
+          bill.UHID.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          bill.bid.toLowerCase().includes(searchTerm.toLowerCase())||
+          bill.reg_no.toLowerCase().includes(searchTerm.toLowerCase())
       );
       setFilteredBills(filtered);
     }
@@ -91,9 +98,9 @@ const App = () => {
         <div className="flex flex-wrap justify-center gap-6 mt-6 w-full">
           {filteredBills.map((bill) => (
             <BillCard
-              key={bill.billNo}
+              key={bill.bid}
               bill={bill}
-              onDelete={() => confirmDeleteBill(bill.billNo)}
+              onDelete={() => confirmDeleteBill(bill.bid)}
             />
           ))}
         </div>
@@ -107,8 +114,11 @@ const App = () => {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
             <AddBill
               onClose={() => setAddBillVisible(false)}
-              onAdd={handleAddBill}
-              generateBillNo={generateBillNo}
+              bills={bills}
+              setBills={setBills}
+              filteredBills={filteredBills}
+              setFilteredBills={setFilteredBills}
+              setAddBillVisible={setAddBillVisible}
             />
           </div>
         )}
